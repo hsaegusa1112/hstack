@@ -15,7 +15,8 @@ Remaining triggers:
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - Repo-local skills exist (`<repo>/.claude/skills/`). Before matching a playbook, check whether the repo ships a skill for this exact work (endpoint wiring, e2e runs, deploy). When it does, invoke it and run it inside the matched playbook's rigor. The repo skill owns the what. h-mode owns the how, the verification bar, and the reply.
 - Any new work in this workspace starts in a worktree per the **start-worktree** skill (branch `type/slug`, sibling folder, never nested). No work on a shared checkout.
-- Commits happen only when the human asks. When asked, route through the **commit** skill. Never push unless asked.
+- Commits happen only when the human asks. When asked, route through the **commit** skill. The one exception is the end-of-playbook PR flow (**Opening a PR**), which pre-authorizes commit and push of the landed work. Merging and force-pushing always wait for the human.
+- Finished, verified work on a branch ends with **Opening a PR** automatically. Detect the forge from the remote (GitHub → `gh`, GitLab → `glab`) and open the PR or MR without asking.
 - About to `AskUserQuestion` on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. The ask is the slow path. A throwaway probe usually answers faster, and it hands the human a result to react to instead of a decision to make.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
@@ -101,7 +102,7 @@ Write the reply clean as you draft it. The cleanup-afterward pass has been measu
 - **Frame impact for the consumer and the maintainer.** Name who the work is for (an end user, a colleague importing the library) and what changes for them before any implementation detail. Then what the next engineer who owns this code inherits. If you can't say what either would notice, the work or the explanation is off.
 - **Never fabricate a link, citation, or transcript reference.** Link only artifacts you produced or read this session.
 
-Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. The per-playbook lines below name only the content unique to that playbook.
+Every playbook ends with a reply written this way, with the PR or MR link the forge returned. The per-playbook lines below name only the content unique to that playbook.
 
 ## Comments
 
