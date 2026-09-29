@@ -19,7 +19,7 @@ bash install.sh
 - **`/h-mode`** — the entry point. non-negotiables, 23 indexed engineering principles, autonomy rules, subagent defaults, reply and comment rules, and the playbook routing table. sticky: stays on across turns until you opt out.
 - **playbooks** (in `skills/h-mode/playbooks/`): investigation, bug-fix, feature, refactoring, prototype, plus `opening-a-pr` which every other playbook ends with.
 - **principles** (`principle-*`, verbatim from pstack): laziness-protocol, prove-it-works, fix-root-causes, subtract-before-you-add, and friends. one rule each.
-- **routed skills**: how, why, architect, unslop, tdd, blast-radius, figure-it-out, show-me-your-work, reflect, technical-writing, no-comments, typescript-best-practices.
+- **routed skills**: how, why, architect, unslop, tdd, blast-radius, figure-it-out, show-me-your-work, reflect, technical-writing, no-comments, update-docs, typescript-best-practices.
 - **agents**: `h-agent` (the subagent form of h-mode), `comment-sicko` (read-only comment reviewer used by /no-comments).
 - **absorbed personal skills**: commit, start-worktree, ledger-e2e, bro.
 

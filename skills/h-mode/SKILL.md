@@ -13,6 +13,7 @@ disable-model-invocation: true
 Remaining triggers:
 
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
+- Repo-local skills exist (`<repo>/.claude/skills/`). Before matching a playbook, check whether the repo ships a skill for this exact work (endpoint wiring, e2e runs, deploy). When it does, invoke it and run it inside the matched playbook's rigor. The repo skill owns the what. h-mode owns the how, the verification bar, and the reply.
 - About to `AskUserQuestion` on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. The ask is the slow path. A throwaway probe usually answers faster, and it hands the human a result to react to instead of a decision to make.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
@@ -22,6 +23,7 @@ Remaining triggers:
 - Any prose surface → the **unslop** skill. Your reply is a prose surface; write it per **Writing the reply**.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Before review → the **no-comments** skill (`/no-comments`).
+- Behavior changed (feature, fix, interface or config change) → the **update-docs** skill before **Opening a PR**. Docs that describe old behavior are a defect.
 - Bug fixes, UI, or anything observable → reproduce first on the matching surface yourself. Hand to the user only under the narrow Bug fix step 1 exception.
 - Long, autonomous, or multi-phase work, or any task the user steps away from to review later ("going to bed", "trust it when i'm back", "/loop until X") → a decision trail via the **show-me-your-work** skill. Commit it when stakes need an auditable record; keep it local otherwise.
 - Broken skill mid-task → fix it in its own PR. Don't block. Don't silently work around it.
