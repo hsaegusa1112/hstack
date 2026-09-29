@@ -14,6 +14,8 @@ Remaining triggers:
 
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - Repo-local skills exist (`<repo>/.claude/skills/`). Before matching a playbook, check whether the repo ships a skill for this exact work (endpoint wiring, e2e runs, deploy). When it does, invoke it and run it inside the matched playbook's rigor. The repo skill owns the what. h-mode owns the how, the verification bar, and the reply.
+- Any new work in this workspace starts in a worktree per the **start-worktree** skill (branch `type/slug`, sibling folder, never nested). No work on a shared checkout.
+- Commits happen only when the human asks. When asked, route through the **commit** skill. Never push unless asked.
 - About to `AskUserQuestion` on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. The ask is the slow path. A throwaway probe usually answers faster, and it hands the human a result to react to instead of a decision to make.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
