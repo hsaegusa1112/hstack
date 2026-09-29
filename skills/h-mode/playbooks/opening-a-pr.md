@@ -4,7 +4,7 @@ Invoked at the end of every other playbook.
 
 **Worktree.** Work from a git worktree off main. Subagents inherit it. Multiple subagent launches on the same branch each get their own worktree, or `git fetch && git reset --hard origin/<branch>` between them. Dirty branch with unrelated work: patch out, fresh worktree, apply. Snarled worktree: reset from main, redo minimally.
 
-**Commits.** Commit only when the human asks (the **commit** skill). Shape the asked-for commits small and ordered before opening PRs. Each commit is a future PR: landable, ordered to tell the story. Amend unpushed commits when the fix belongs in a just-made commit. New commit when separable.
+**Commits.** Commit liberally (the **commit** skill). Rebase into small, ordered commits before opening PRs. Each commit is a future PR: landable, ordered to tell the story. Amend unpushed commits when the fix belongs in a just-made commit. New commit when separable.
 
 **PRs.** Run `/update-docs` when behavior changed. Run `/no-comments` before review. Write every PR title, PR description, and commit body with `/technical-writing`, then apply `/unslop`. Apply every technical-writing layer except Diátaxis. Use one word for each action, keep articles, and avoid `-ing` when a plain verb works.
 
@@ -24,7 +24,7 @@ After these sections, attach videos or screenshots when they prove a claim. Do n
 
 **Forge.** Resolve the forge before the first PR operation and keep that choice for create, edit, view, watch, and merge. Read `git remote get-url origin`. A `github.com` remote pairs with the GitHub CLI (`gh`). A GitLab remote (gitlab.com or self-hosted) pairs with `glab`. Check `command -v` for the matching CLI. If it is missing, push the branch, print the create-PR or create-MR URL from the push output, and record the fallback.
 
-**Automation.** Opening the PR or MR is part of every playbook's tail, not an ask. When the work is done and verified, commit, push, and create the PR or MR without pausing. This flow is the one authorized exception to commit-only-on-request. Merging, force-pushing, and writes to a shared branch still wait for the human.
+**Automation.** Opening the PR or MR is part of every playbook's tail, not an ask. When the work is done and verified, commit, push, and create the PR or MR without pausing. Merging, force-pushing, and writes to a shared branch still wait for the human.
 
 **Size and stacks.** Prefer five narrow PRs to one large PR. A stack is a base-branch chain. The root PR targets trunk. Each child branch rebases onto its parent's exact tip and its PR targets the parent branch. Create a child with `gh pr create --base <parent-branch>` on GitHub, or `glab mr create --target-branch <parent-branch>` on GitLab. Retarget an existing child with `gh pr edit <pr> --base <parent-branch>` or `glab mr update <iid> --target-branch <parent-branch>`. Branch from trunk only for independent work. Rebase on trunk before substantial stack work.
 

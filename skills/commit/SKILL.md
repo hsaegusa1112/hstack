@@ -5,7 +5,7 @@ description: Commit work in any repo in the GitHub workspace following conventio
 
 # Commit
 
-Only when explicitly asked — never auto-commit, and never push unless asked.
+Committing is part of the flow, not an ask. Commit freely on a worktree branch — the branch is the checkpoint — unless the human states otherwise for the session. Push happens with the end-of-playbook PR flow, never to a shared branch unasked.
 
 ## Message format — conventional commits
 
@@ -48,6 +48,6 @@ EOF
 ## Guardrails
 
 - No `--no-verify`, no `--amend` of pushed commits, no force-push — unless explicitly asked.
-- The one standing exception to "only when asked": the h-mode end-of-playbook PR flow pre-authorizes commit and push of the work a playbook landed, to create its PR or MR. Merging, force-pushing, and shared-branch writes still wait for an explicit ask.
+- The h-mode end-of-playbook PR flow commits and pushes the work a playbook landed, to create its PR or MR. Merging, force-pushing, and shared-branch writes still wait for an explicit ask.
 - On a worktree branch (`type/slug`), commit freely; the branch is the checkpoint. Main gets commits only via the repo's merge flow (e.g. GitLab MR).
 - Agent-created commits end with the `Co-Authored-By: Claude Code <noreply@anthropic.com>` trailer per the harness attribution rule.

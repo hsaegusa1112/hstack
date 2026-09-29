@@ -7,7 +7,7 @@ description: Workspace-wide convention for starting any new work in ~/Documents/
 
 ## Branch — `type/slug`
 
-Match the repo's existing history: `feat/…`, `fix/…`, `chore/…`, `docs/…`. Commits use the same vocabulary — `type: summary` — and happen only when explicitly asked.
+Match the repo's existing history: `feat/…`, `fix/…`, `chore/…`, `docs/…`. Commits use the same vocabulary — `type: summary` — and happen freely on the worktree branch unless the human states otherwise.
 
 ## Worktree — sibling folder, never nested
 
