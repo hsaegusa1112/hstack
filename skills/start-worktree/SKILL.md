@@ -16,10 +16,9 @@ The VSCode workspace is the multi-root `~/Documents/GitHub` folder and only sees
 ```bash
 cd ~/Documents/GitHub/<repo>
 git worktree add ../<repo>-<slug> -b <type>/<slug>
-
-# add it to the workspace (code is not on PATH by default)
-"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" --add ~/Documents/GitHub/<repo>-<slug>
 ```
+
+Do NOT `code --add` the new worktree to the workspace — the GitHub folder is already the workspace root, so the sibling appears in the Explorer automatically. Adding it as a root too makes it show up twice. (Remove existing duplicates with right-click → Remove Folder from Workspace; files stay on disk.)
 
 ## Per-worktree setup
 
