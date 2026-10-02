@@ -44,7 +44,6 @@ ledger-engine-burn-no-wallet-tests  -                 18998  fix/ingest-failure-
 | 5433 | postgres (engine-compose) | |
 | 3000 | portal | usually disabled |
 | 10350 | tilt UI | |
-| 8899 | kubeview | usually disabled |
 | 9092 | kafka | tilt kafka is in-cluster only — a host listener here is always a warning |
 
 ## Warnings
