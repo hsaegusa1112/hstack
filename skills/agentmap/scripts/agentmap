@@ -70,7 +70,6 @@ svc_of_port() {
 		5433) printf 'postgres-compose' ;;
 		9092) printf 'kafka' ;;
 		10350) printf 'tilt-ui' ;;
-		8899) printf 'kubeview' ;;
 		*) printf '' ;;
 	esac
 }
@@ -78,7 +77,7 @@ probe_of_svc() {
 	case "$1" in
 		engine) printf '/actuator/health' ;;
 		bridge) printf '/monitor/health' ;;
-		portal|tilt-ui|kubeview) printf '/' ;;
+		portal|tilt-ui) printf '/' ;;
 		*) printf '' ;;
 	esac
 }
