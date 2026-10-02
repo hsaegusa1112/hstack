@@ -22,6 +22,7 @@ bash install.sh
 - **routed skills**: how, why, architect, unslop, tdd, blast-radius, figure-it-out, show-me-your-work, reflect, technical-writing, no-comments, update-docs, typescript-best-practices.
 - **agents**: `h-agent` (the subagent form of h-mode), `comment-sicko` (read-only comment reviewer used by /no-comments).
 - **absorbed personal skills**: commit, start-worktree, ledger-e2e, bro.
+- **`/agentmap`** — live map of local listeners → worktree/service/health, with collision warnings.
 
 dropped from pstack on purpose: the multi-model panel skills (arena, swarm, interrogate) and `/setup-pstack`'s model-rule layer. models are set per agent in `agents/*.md` frontmatter.
 

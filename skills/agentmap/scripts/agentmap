@@ -1,0 +1,285 @@
+#!/usr/bin/env bash
+# Map every local TCP listener to its repo/worktree, service, and dependency
+# edge; flag collisions (tilt ports held elsewhere, a bridge with no engine,
+# kafka on the host, unknown listeners inside ledger worktrees).
+# Read-only.
+#
+# agentmap [--json] [--all] [--no-probe] [root]
+set -euo pipefail
+
+json=0 probe=1 all=0
+root="${AGENTMAP_ROOT:-${HOME}/Documents/GitHub}"
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--json) json=1 ;;
+		--all) all=1 ;;
+		--no-probe) probe=0 ;;
+		-h|--help) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+		-*) printf 'agentmap: unknown flag %s\n' "$1" >&2; exit 2 ;;
+		*) root="$1" ;;
+	esac
+	shift
+done
+case "$root" in
+	~*) root="${root/#\~/${HOME}}" ;;
+esac
+[ -d "$root" ] || { printf 'agentmap: not a directory: %s\n' "$root" >&2; exit 1; }
+
+# --- worktree inventory (dir names alone don't determine the branch) ------
+WT_PATH=(); WT_NODE=(); WT_BRANCH=()
+wt_seen() {
+	local i
+	for ((i = 0; i < ${#WT_PATH[@]}; i++)); do
+		[ "${WT_PATH[i]}" = "$1" ] && return 0
+	done
+	return 1
+}
+while IFS= read -r d; do
+	git -C "$d" rev-parse --git-dir >/dev/null 2>&1 || continue
+	while IFS=$'\t' read -r wpath wbranch; do
+		[ -n "$wpath" ] || continue
+		wt_seen "$wpath" && continue
+		WT_PATH+=("$wpath")
+		WT_NODE+=("$(basename "$wpath")")
+		WT_BRANCH+=("${wbranch:--}")
+	done < <(git -C "$d" worktree list --porcelain 2>/dev/null | awk '
+		/^worktree / { p = substr($0, 10); next }
+		/^branch /   { b = substr($0, 8); sub(/^refs\/heads\//, "", b); next }
+		/^detached/  { b = "(detached)"; next }
+		/^$/         { if (p != "") print p "\t" (b == "" ? "-" : b); p = ""; b = "" }
+		END          { if (p != "") print p "\t" (b == "" ? "-" : b) }')
+done < <(find "$root" -maxdepth 1 -type d ! -path "$root" | sort)
+
+wt_for_cwd() {
+	local i best=-1 bestlen=0
+	for ((i = 0; i < ${#WT_PATH[@]}; i++)); do
+		case "$1" in
+			"${WT_PATH[i]}"|"${WT_PATH[i]}"/*)
+				[ ${#WT_PATH[i]} -gt $bestlen ] && { best=$i; bestlen=${#WT_PATH[i]}; } ;;
+		esac
+	done
+	printf '%s' "$best"
+}
+
+svc_of_port() {
+	case "$1" in
+		8080) printf 'engine' ;;
+		8081) printf 'bridge' ;;
+		3000) printf 'portal' ;;
+		5432) printf 'postgres-tilt' ;;
+		5433) printf 'postgres-compose' ;;
+		9092) printf 'kafka' ;;
+		10350) printf 'tilt-ui' ;;
+		8899) printf 'kubeview' ;;
+		*) printf '' ;;
+	esac
+}
+probe_of_svc() {
+	case "$1" in
+		engine) printf '/actuator/health' ;;
+		bridge) printf '/monitor/health' ;;
+		portal|tilt-ui|kubeview) printf '/' ;;
+		*) printf '' ;;
+	esac
+}
+is_platform_proc() {
+	case "$1" in
+		com.docker.*|vpnkit*|orbstack*|OrbStack*|Docker|portforward|kubectl) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+# --- listeners -------------------------------------------------------------
+LS_PID=(); LS_PORT=(); LS_PROC=()
+ls_seen() {
+	local i
+	for ((i = 0; i < ${#LS_PID[@]}; i++)); do
+		[ "${LS_PID[i]}" = "$1" ] && [ "${LS_PORT[i]}" = "$2" ] && return 0
+	done
+	return 1
+}
+cur_pid="" cur_proc=""
+while IFS= read -r line; do
+	case "$line" in
+		p*) cur_pid="${line#p}" ;;
+		c*) cur_proc="${line#c}" ;;
+		n*)
+			port="${line##*:}"
+			case "$port" in ''|*[!0-9]*) continue ;; esac
+			ls_seen "$cur_pid" "$port" && continue
+			LS_PID+=("$cur_pid"); LS_PORT+=("$port"); LS_PROC+=("$cur_proc")
+			;;
+	esac
+done < <(lsof +c0 -nP -iTCP -sTCP:LISTEN -Fpcn 2>/dev/null || true)
+
+# cwd of every process, one lsof pass (a -p <csv> lookup drops pids)
+CDW_PID=(); CDW_PATH=()
+cur_pid=""
+while IFS= read -r line; do
+	case "$line" in
+		p*) cur_pid="${line#p}" ;;
+		n*) CDW_PID+=("$cur_pid"); CDW_PATH+=("${line#n}") ;;
+	esac
+done < <(lsof +c0 -nP -d cwd -Fn 2>/dev/null || true)
+
+cwd_of_pid() {
+	local i
+	for ((i = 0; i < ${#CDW_PID[@]}; i++)); do
+		[ "${CDW_PID[i]}" = "$1" ] && { printf '%s' "${CDW_PATH[i]}"; return 0; }
+	done
+	printf ''
+}
+
+# --- attribute + collect rows and warnings ---------------------------------
+ROWS=()   # node<TAB>branch<TAB>service<TAB>port<TAB>process<TAB>status
+WARNINGS=()
+warn() { WARNINGS+=("$1"); }
+
+tilt_running=0 engine_up=0 bridge_up=0 pg_tilt=0 pg_compose=0 sys_extra=0
+for ((i = 0; i < ${#LS_PID[@]}; i++)); do
+	port="${LS_PORT[i]}" proc="${LS_PROC[i]}"
+	cwd="$(cwd_of_pid "${LS_PID[i]}")"
+	svc="$(svc_of_port "$port")"
+	wtidx="$(wt_for_cwd "$cwd")"
+	if [ "$wtidx" -ge 0 ]; then
+		node="${WT_NODE[wtidx]}" branch="${WT_BRANCH[wtidx]}"
+	elif is_platform_proc "$proc" || [ -z "$cwd" ]; then
+		node="platform" branch="-"
+	else
+		case "$cwd" in
+			/|/private/tmp/*|/private/var/*|/tmp/*|/var/*|/Applications/*|/System/*|/usr/*)
+				node="platform" branch="-" ;;
+			"${HOME}"|"${HOME}"/*)
+				node="unattributed" branch="-"
+				warn "unattributed listener ${proc} on :${port} (cwd: ${cwd})" ;;
+			*)
+				node="platform" branch="-" ;;
+		esac
+	fi
+	if [ -z "$svc" ] && [[ "$node" == ledger* ]] && ! is_platform_proc "$proc" && [ "$proc" != tilt ]; then
+		warn "unknown service ${proc} on :${port} in ${node}"
+	fi
+	case "$proc" in tilt) tilt_running=1 ;; esac
+	[ "$port" = 8080 ] && engine_up=1
+	[ "$port" = 8081 ] && bridge_up=1
+	[ "$port" = 5432 ] && pg_tilt=1
+	[ "$port" = 5433 ] && pg_compose=1
+	[ "$port" = 9092 ] && warn "kafka on host :9092 (pid ${LS_PID[i]} ${proc}) — tilt kafka is in-cluster only"
+
+	status="-"
+	ppath="$(probe_of_svc "$svc")"
+	if [ -n "$ppath" ] && [ "$probe" = 1 ]; then
+		if curl -sf -m 1 "http://127.0.0.1:${port}${ppath}" >/dev/null 2>&1; then
+			status="✓ ${ppath}"
+		else
+			status="✗ ${ppath}"
+		fi
+	fi
+	edge=""
+	case "$svc" in
+		bridge) edge="→ engine:8080" ;;
+		engine)
+			case "$proc" in tilt|kubectl|portforward)
+				[ $pg_tilt = 1 ] && edge="→ postgres:5432" ;;
+			*)
+				[ $pg_compose = 1 ] && edge="→ postgres:5433"
+				[ -z "$edge" ] && [ $pg_tilt = 1 ] && edge="→ postgres:5432" ;;
+			esac ;;
+	esac
+	[ -n "$edge" ] && status="${status} ${edge}"
+
+	if [ "$node" = platform ] && [ -z "$svc" ] && ! is_platform_proc "$proc" && [ "$all" = 0 ]; then
+		sys_extra=$((sys_extra + 1))
+	else
+		ROWS+=("${node}"$'\t'"${branch}"$'\t'"${svc:--}"$'\t'"${port}"$'\t'"${proc}"$'\t'"${status}")
+	fi
+done
+
+if [ $bridge_up = 1 ] && [ $engine_up = 0 ]; then
+	warn "bridge → engine:8080 but nothing is listening on 8080 (orphaned bridge)"
+fi
+if [ $engine_up = 1 ] && [ $pg_tilt = 0 ] && [ $pg_compose = 0 ]; then
+	warn "engine up but no postgres listener (tilt :5432 / engine-compose :5433)"
+fi
+if [ $pg_tilt = 1 ] && [ $pg_compose = 1 ]; then
+	warn "two postgres stacks up (tilt :5432 + engine-compose :5433) — which one does the engine use?"
+fi
+if [ $tilt_running = 1 ]; then
+	for tport in 8080 8081 5432 10350; do
+		held="" heldpid=""
+		for ((i = 0; i < ${#LS_PORT[@]}; i++)); do
+			[ "${LS_PORT[i]}" = "$tport" ] || continue
+			case "${LS_PROC[i]}" in
+				tilt|kubectl|portforward) held="" ;;
+				*) held="${LS_PROC[i]}" heldpid="${LS_PID[i]}" ;;
+			esac
+			break
+		done
+		[ -n "$held" ] && warn "tilt is up but :${tport} is held by ${held} (pid ${heldpid}) — that tilt port-forward lost the port"
+	done
+fi
+
+# --- output ----------------------------------------------------------------
+if [ "$json" = 1 ]; then
+	if [ ${#ROWS[@]} -gt 0 ]; then
+		nodes_json="$(printf '%s\n' "${ROWS[@]}" | jq -Rn '
+			[inputs | split("\t")]
+			| map({node: .[0], branch: .[1], service: .[2], port: .[3], process: .[4], status: .[5]})
+			| group_by(.node)
+			| map({node: .[0].node, branch: .[0].branch,
+			       services: map({service: .service, port: (.port | tonumber? // .port),
+			                      process: .process, status: .status})})')"
+	else
+		nodes_json="[]"
+	fi
+	if [ ${#WARNINGS[@]} -gt 0 ]; then
+		warns_json="$(printf '%s\n' ${WARNINGS[@]+"${WARNINGS[@]}"} | jq -Rn '[inputs]')"
+	else
+		warns_json="[]"
+	fi
+	jq -n --arg root "$root" --argjson nodes "$nodes_json" --argjson warnings "$warns_json" --argjson sys_extra "$sys_extra" \
+		'{tool: "agentmap", root: $root, generated_at: (now | todate), nodes: $nodes, warnings: $warnings, system_listeners_omitted: $sys_extra}'
+	exit 0
+fi
+
+printf '== agentmap — %s ==\n\n' "$root"
+if [ ${#ROWS[@]} = 0 ]; then
+	echo "(nothing is listening)"
+	exit 0
+fi
+
+NODES=()
+for r in ${ROWS[@]+"${ROWS[@]}"}; do
+	n="$(printf '%s' "$r" | cut -f1)"
+	known=0
+	for k in ${NODES[@]+"${NODES[@]}"}; do [ "$k" = "$n" ] && known=1; done
+	[ $known = 0 ] && NODES+=("$n")
+done
+
+wn=6 ws=7 wp=4 wb=6
+for r in ${ROWS[@]+"${ROWS[@]}"}; do
+	IFS=$'\t' read -r rnode rbranch rsvc rport rrest <<<"$r"
+	[ ${#rnode} -gt $wn ] && wn=${#rnode}
+	[ ${#rsvc} -gt $ws ] && ws=${#rsvc}
+	[ ${#rport} -gt $wp ] && wp=${#rport}
+	[ ${#rbranch} -gt $wb ] && wb=${#rbranch}
+done
+printf '%-*s  %-*s  %-*s  %-*s  %s\n' "$wn" NODE "$ws" SERVICE "$wp" PORT "$wb" BRANCH STATUS
+for n in ${NODES[@]+"${NODES[@]}"}; do
+	for r in ${ROWS[@]+"${ROWS[@]}"}; do
+		IFS=$'\t' read -r rnode rbranch rsvc rport rproc rstatus <<<"$r"
+		[ "$rnode" = "$n" ] || continue
+		if [ "$rstatus" = "-" ]; then cell="$rproc"; else cell="$rstatus ($rproc)"; fi
+		printf '%-*s  %-*s  %-*s  %-*s  %s\n' "$wn" "$rnode" "$ws" "$rsvc" "$wp" "$rport" "$wb" "$rbranch" "$cell"
+	done
+	echo
+done
+if [ $sys_extra -gt 0 ]; then
+	printf '(+%d other system listeners — --all to show)\n\n' "$sys_extra"
+fi
+
+if [ ${#WARNINGS[@]} -gt 0 ]; then
+	printf '%s\n' ${WARNINGS[@]+"${WARNINGS[@]}"} | sort -u | sed 's/^/⚠ /'
+else
+	echo "no warnings"
+fi
