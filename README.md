@@ -22,6 +22,7 @@ bash install.sh
 - **routed skills**: how, why, architect, unslop, tdd, blast-radius, figure-it-out, show-me-your-work, reflect, technical-writing, no-comments, update-docs, typescript-best-practices.
 - **agents**: `h-agent` (the subagent form of h-mode), `comment-sicko` (read-only comment reviewer used by /no-comments).
 - **absorbed personal skills**: commit, start-worktree, ledger-e2e, bro.
+- **vendored**: `/caveman`, `/ultracave` — opt-in token-light reply modes from [juliusbrussee/caveman](https://github.com/juliusbrussee/caveman) (Apache-2.0). upstream files verbatim; LICENSE + NOTICE per skill dir. ultracave is the measured one (35% fewer output tokens); plain caveman is a style choice. hstack skips the rest of upstream (micro-playbooks duplicate the principle skills, utility skills need the caveman CLI).
 - **`/agentmap`** — live map of local listeners → worktree/service/health, with collision warnings.
 
 dropped from pstack on purpose: the multi-model panel skills (arena, swarm, interrogate) and `/setup-pstack`'s model-rule layer. models are set per agent in `agents/*.md` frontmatter.
